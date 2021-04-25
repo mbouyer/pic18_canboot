@@ -46,6 +46,7 @@
 
 static char sendbuf[CANBOOT_BLKLEN];
 static int blkaddr, blksize;
+static int firstblock;
 static int s;
 static int devid;
 
@@ -114,16 +115,24 @@ again:
 			if ((cf.can_id & 0x7) != PKT_SID)
 				continue;
 
-			if (cf.can_dlc != 1)
-				continue;
+			if (cf.can_dlc == 1) {
 
-			if (cf.data[0] == PKT_BLKACK) {
-				printf("."); fflush(stdout);
-				return;
+				if (cf.data[0] == PKT_BLKACK) {
+					printf("."); fflush(stdout);
+					return;
+				}
+				if (cf.data[0] == PKT_BLKNACK) {
+					printf("n"); fflush(stdout);
+					goto again;
+				}
 			}
-			if (cf.data[0] == PKT_BLKNACK) {
-				printf("n"); fflush(stdout);
-				goto again;
+			if (firstblock &&
+			    cf.can_dlc == 3 && cf.data[0] == PKT_HELO) {
+				if (cf.data[1] == (devid & 0xff) &&
+				    cf.data[2] == ((devid >> 8) & 0xff)) {
+					printf("restart\n");
+					goto again;
+				}
 			}
 		}
 	}
@@ -138,6 +147,7 @@ wrbuf(uint8_t val)
 		sendtotarget();
 		blkaddr+= CANBOOT_BLKLEN;
 		blksize = 0;
+		firstblock = 0;
 	}
 }
 
@@ -310,6 +320,7 @@ main(int argc, const char *argv[])
 		}
 	}
 	printf("programming start\n");
+	firstblock = 1;
 
 	readfile(f);
 	cf.can_id = ((devid & 0xff) << 3) | PKP_EOF;
