@@ -383,19 +383,19 @@ main(int argc, char * const argv[])
 	if (argc != 3) {
 		usage();
 	}
-	devid = strtol(argv[2], NULL, 0);
+	devid = strtol(argv[1], NULL, 0);
 
-	f = fopen(argv[3], "r");
+	f = fopen(argv[2], "r");
 	if (f == NULL) {
-		err(1, "open %s", argv[3]);
+		err(1, "open %s", argv[2]);
 	}
 
 	if ((s = socket(AF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
 		err(1, "CAN socket");
 	}
-	strncpy(ifr.ifr_name, argv[1], IFNAMSIZ );
+	strncpy(ifr.ifr_name, argv[0], IFNAMSIZ );
 	if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
-		err(1, "SIOCGIFINDEX for %s", argv[1]);
+		err(1, "SIOCGIFINDEX for %s", argv[0]);
 	}
 	sa.can_family = AF_CAN;
 	sa.can_ifindex = ifr.ifr_ifindex;
