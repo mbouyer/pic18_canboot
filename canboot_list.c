@@ -1,6 +1,5 @@
-/* $Id: canboot_list.c,v 1.2 2017/07/21 20:37:59 bouyer Exp $ */
 /*
- * Copyright (c) 2017 Manuel Bouyer
+ * Copyright (c) 2017,2021 Manuel Bouyer
  *
  * All rights reserved.
  *
@@ -43,23 +42,9 @@
 #include <linux/can/raw.h>
 #endif
 #include "nmea2000_pgn.h"
+#include "nmea2000_class.h"
 
 int s;
-
-struct n2k_desc {
-	int class;
-	int function;
-	const char *desc;
-};
-
-const struct n2k_desc n2k_descs[] = {
-    {40, 140, "Mode Controller"},
-    {40, 150, "Autopilot"},
-    {40, 160, "Heading Sensors"},
-    {60, 140, "Ownship Attitude"},
-    {120, 130, "Display"},
-    {0, 0, NULL},
-};
 
 static void
 usage()

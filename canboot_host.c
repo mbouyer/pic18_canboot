@@ -1,6 +1,5 @@
-/* $Id: canboot_host.c,v 1.4 2017/07/21 20:37:59 bouyer Exp $ */
 /*
- * Copyright (c) 2017 Manuel Bouyer
+ * Copyright (c) 2017,2021 Manuel Bouyer
  *
  * All rights reserved.
  *
@@ -43,6 +42,8 @@
 #include <linux/can/raw.h>
 #endif
 #include "canboot_defs.h"
+#include "nmea2000_pgn.h"
+#include "nmea2000_class.h"
 
 static char sendbuf[CANBOOT_BLKLEN];
 static int blkaddr, blksize;
@@ -53,7 +54,7 @@ static int devid;
 static void
 usage()
 {
-	fprintf(stderr, "usage: canboot_host <interface> <id> <file>\n");
+	fprintf(stderr, "usage: canboot_host [-r] <interface> <id> <file>\n");
 	exit(1);
 }
 
@@ -261,8 +262,100 @@ readfile(FILE *f)
 	errx(1, "no EOF record");
 }
 
+static void
+send_iso_request()
+{   
+	struct can_frame cf;
+	int i, j, r;
+	uint16_t csum;
+	again:
+	cf.can_id =  (NMEA2000_PRIORITY_CONTROL << 26) | ((ISO_REQUEST >> 8) <<
+	16) | (NMEA2000_ADDR_GLOBAL << 8) | NMEA2000_ADDR_NULL | CAN_EFF_FLAG;
+	cf.data[0] = (ISO_ADDRESS_CLAIM >> 16);
+	cf.data[1] = (ISO_ADDRESS_CLAIM >>  8);
+	cf.data[2] = (ISO_ADDRESS_CLAIM & 0xff);
+	cf.can_dlc = 3;
+	if (write(s, &cf, sizeof(cf)) <= 0) {
+		err(1, "write ISO_REQUEST to socket");
+	}
+}
+
+static void
+send_reset(int addr)
+{
+	struct can_frame cf;
+	int i, j, r;
+	uint16_t csum;
+
+	cf.can_id =  (NMEA2000_PRIORITY_CONTROL << 26) | ((PRIVATE_REMOTE_CONTROL >> 8) << 16) | (addr << 8) | NMEA2000_ADDR_NULL | CAN_EFF_FLAG;
+	cf.data[0] = CONTROL_RESET;
+	cf.can_dlc = CONTROL_RESET_SIZE;
+	if (write(s, &cf, sizeof(cf)) <= 0) {
+		err(1, "write ISO_REQUEST to socket");
+	}
+}
+
+
+static void
+find_and_reset(int r_devid)
+{
+	struct can_filter cfi;
+	struct can_frame cf;
+	int myid;
+	int r;
+
+	cfi.can_id = ((ISO_ADDRESS_CLAIM >> 8) << 16) | CAN_EFF_FLAG;
+	cfi.can_mask = (0xff << 16) | CAN_EFF_FLAG;
+        if (setsockopt(s,
+	    SOL_CAN_RAW, CAN_RAW_FILTER, &cfi, sizeof(cfi)) < 0) {
+                err(1, "setsockopt(CAN_RAW_FILTER)");
+        }
+
+	send_iso_request();
+
+	while (1) {
+		int n, class, function;
+		r = read(s, &cf, sizeof(cf));
+		if (r < 0) {
+			err(1, "read from socket");
+		}
+		if (r == 0)
+			continue;
+		if (cf.can_dlc != 8)
+			continue;
+
+		myid = cf.data[0];
+		myid |= (cf.data[1] << 8);
+		myid |= (cf.data[2] & 0x1f) << 16;
+		if (myid != r_devid)
+			continue;
+
+		printf("found device at address %d: ", cf.can_id & 0xff);
+		function = cf.data[5];
+		class = cf.data[6] >> 1;
+		for (n = 0; n2k_descs[n].desc != NULL; n++) {
+			if (n2k_descs[n].class == class &&
+			    n2k_descs[n].function == function)
+				break;
+		}
+		if (n2k_descs[n].desc != NULL) {
+			printf("%s\n", n2k_descs[n].desc);
+		} else {
+			printf("unknown class %d function %d\n",
+			    class, function);
+		}
+		n = (cf.data[2] >> 5);
+		n |= (cf.data[3] << 3);
+		printf("   manufacturer code: %d\n", n);
+		printf("   device instance: %d\n", cf.data[4]);
+		printf("   system instance: %d\n", (cf.data[7] & 0xf));
+		send_reset(cf.can_id & 0xff);
+		return;
+	}
+}
+
 int
-main(int argc, const char *argv[])
+main(int argc, char * const argv[])
 {
 	FILE *f;
 	struct ifreq ifr;
@@ -270,8 +363,24 @@ main(int argc, const char *argv[])
 	struct can_frame cf;
 	struct can_filter cfi;
 	int r;
+	int rflag = 0;
+	extern char *optarg;
+	extern int optind;
+	int ch;
 
-	if (argc != 4) {
+	while ((ch = getopt(argc, argv, "r")) != -1) {
+		switch(ch) {
+		case 'r':
+			rflag++;
+			break;
+		default:
+			usage();
+		}
+	}
+	argc -= optind;
+	argv += optind;
+		
+	if (argc != 3) {
 		usage();
 	}
 	devid = strtol(argv[2], NULL, 0);
@@ -292,6 +401,10 @@ main(int argc, const char *argv[])
 	sa.can_ifindex = ifr.ifr_ifindex;
 	if (bind(s, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
 		err(1, "bind socket");
+	}
+
+	if (rflag) {
+		find_and_reset(devid);
 	}
 
 	cfi.can_id = ((devid & 0xff) << 3);
