@@ -16,3 +16,6 @@ canboot.bin: canboot.hex
 
 canboot.hex: canboot.asm
 	gpasm canboot.asm
+
+clean:
+	rm -f canboot_host canboot_reset canboot_list *.cod *.hex *.lst
