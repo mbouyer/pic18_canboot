@@ -157,14 +157,14 @@ readfile(FILE *f)
 {
 #define BLKBOOT_MASK (~(CANBOOT_BLKLEN-1))
 
-	int lineno, rlen, rtype, raddr;
+	int lineno, rlen, rtype, raddr, baseaddr;
 	u_int8_t val;
 	u_int8_t rsum;
 	static char line[1024];
 	char *linep;
 	int i;
 
-	lineno = blkaddr = blksize = 0;
+	lineno = blkaddr = blksize = baseaddr = 0;
 
 	while (fgets(line, 1020, f) != NULL) {
 		lineno++;
@@ -192,6 +192,7 @@ readfile(FILE *f)
 
 		switch(rtype) {
 		case 00: /* data record */
+			raddr += baseaddr;
 			if ((raddr & BLKBOOT_MASK) != blkaddr) {
 				/* new block: fill the current one and send */
 				if (blksize > 0) {
@@ -234,18 +235,14 @@ readfile(FILE *f)
 			}
 			return;
 		case 04: /* start linear address record */
-			raddr = getint(linep);
-			rsum += raddr;
+			baseaddr = getint(linep);
+			rsum += baseaddr;
 			linep += 2;
-			raddr = raddr << 8;
-			raddr |= getint(linep);
-			rsum += (raddr & 0xff);
+			baseaddr = baseaddr << 8;
+			baseaddr |= getint(linep);
+			rsum += (baseaddr & 0xff);
 			linep += 2;
-			if (raddr != 0) {
-				errx(1, 
-				    "invalid address 0x%x line %d\n",
-				    raddr, lineno);
-			}
+			baseaddr = baseaddr << 16;
 			break;
 		default:
 			errx(1,
