@@ -324,6 +324,13 @@ wnorm:
 tryagain:
 	decf	BANKMASK(cmpt1), f, a
 	bnz	hello;
+	movlw	0x04
+	movwf	C1CONT, b ; back to config mode
+exitconf:
+	movlw	0xe0
+	andwf	C1CONU, w, b
+	xorlw	0x80
+	bnz	exitconf
 	goto 	UOFFSET
 
 doend:
