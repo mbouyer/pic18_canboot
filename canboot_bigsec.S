@@ -171,6 +171,11 @@ endstr:
 	    DB 'char'
 	ENDM
 	DB 0
+hellostr:
+	IRPC char,hello
+	    DB 'char'
+	ENDM
+	DB 0
 #endif
 
 #define UPPER(x) (((x) >> 16) & 0xff)
@@ -204,7 +209,7 @@ wconf:
 	bnz	wconf
 
 	movlw	0x10
-	movwf	C1CONU, b; TXQ en, STEF disable 
+	movwf	C1CONU, b; TXQ en, STEF disable
 	movlw	0x90
 	movwf	C1CONH, b ; enable CAN, BRSDIS
 	movlw	0x40
@@ -343,9 +348,13 @@ doend:
 #endif
 	reset
 hello:
+	print hellostr
+	banksel C1TXQCONH;
+	bcf	C1TXQCONH, C1TXQCONH_TXREQ_POSN, b ; abort transmit, in case one is pending
 	movlw	PKT_HELO
 	rcall	sendpacket
 	; C1TXQCONH already selected
+#ifdef WAIT_CAN
 b2:
 #ifdef DEBUG
 	movlw	HIGH C1BDIAG1T
@@ -371,6 +380,7 @@ b2:
 #endif /* DEBUG */
 	btfsc	TXREQ0
 	bra 	b2
+#endif /* WAIT_CAN */
 waitaddr:
 	rcall	waitrxtout1s
 	bz	tryagain
