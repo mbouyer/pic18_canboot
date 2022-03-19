@@ -21,10 +21,16 @@ canboot.hex: canboot.asm
 #CB_END=700
 CB_END=600
 canboot_bigsec.hex: canboot_bigsec.S
-	pic-as ${CB_DEBUG} -DTESTBATT -mcpu=18F27Q84 -mrom=300-${CB_END} -Wl,-presetVec=300h -Wl,-pivth=308h -Wl,-pivtl=318h -Wa,-a -Wl,-Map=canboot_bigsec.map canboot_bigsec.S
+	pic-as ${CB_DEBUG} -mcpu=18F27Q84 -mrom=300-${CB_END} -Wl,-presetVec=300h -Wl,-pivth=308h -Wl,-pivtl=318h -Wa,-a -Wl,-Map=canboot_bigsec.map canboot_bigsec.S
 
 canboot_bigsec.bin: canboot_bigsec.hex
 	hex2bin 0x300 canboot_bigsec.hex canboot_bigsec.bin
+
+writeid_bigsec.hex: writeid_bigsec.S
+	pic-as -DDEVID=${DEVID} -mcpu=18F27Q84 -mrom=300-3ff -Wl,-presetVec=300h -Wa,-a -Wl,-Map=writeid_bigsec.map writeid_bigsec.S
+
+writeid_bigsec.bin: writeid_bigsec.hex
+	hex2bin 0x300 writeid_bigsec.hex writeid_bigsec.bin
 
 clean:
 	rm -f canboot_host canboot_reset canboot_list *.cod *.hex *.lst
