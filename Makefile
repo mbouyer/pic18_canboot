@@ -8,7 +8,7 @@ canboot_host: canboot_host.c canboot_defs.h nmea2000_class.h nmea2000_pgn.h
 canboot_reset: canboot_reset.c canboot_defs.h nmea2000_class.h nmea2000_pgn.h
 	cc -o canboot_reset canboot_reset.c
 
-canboot_list: canboot_list.c canboot_defs.h nmea2000_pgn.h
+canboot_list: canboot_list.c canboot_defs.h nmea2000_pgn.h nmea2000_class.h
 	cc -o canboot_list canboot_list.c
 
 canboot.bin: canboot.hex
