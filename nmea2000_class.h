@@ -32,6 +32,7 @@ struct n2k_desc {
 };
 
 const struct n2k_desc n2k_descs[] = {
+    {10, 130, "Diagnostic"},
     {30, 141, "AC/DC input"},
     {35, 142, "solar panel"},
     {40, 140, "Mode Controller"},
